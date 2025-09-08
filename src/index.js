@@ -1,21 +1,29 @@
-import dotenv from "dotenv";
-import connectDB from "./db/index.js";
-import { app } from "./app.js";
+import dotenv from 'dotenv';
+import connectDB from './db/index.js';
+import { app } from './app.js';
 
+// Load .env locally; on Render, dashboard env vars are injected automatically
+dotenv.config(); // default is ".env" at project root
 
-
-dotenv.config({ path: "./env" });
+const HOST = '0.0.0.0';
+const PORT = Number(process.env.PORT) || 4000;
 
 connectDB()
   .then(() => {
-    app.listen(process.env.PORT || 0.0.0.0, () => {
-      console.log(`Server is running on port ${process.env.PORT}`);
-      app.on("error", (error) => {
-        console.log("ERROR: ", error);
-        throw error;
-      });
+    const server = app.listen(PORT, HOST, () => {
+      console.log(`Server listening on http://${HOST}:${PORT}`);
+    });
+
+    app.on('error', (error) => {
+      console.error('Express app error:', error);
+    });
+
+    server.on('error', (error) => {
+      console.error('HTTP server error:', error);
+      process.exit(1);
     });
   })
   .catch((err) => {
-    console.log("Mongoose connection error: ", err);
+    console.error('Mongoose connection error:', err);
+    process.exit(1);
   });
