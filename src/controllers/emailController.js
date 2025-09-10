@@ -198,7 +198,7 @@ const generateOTPEmailTemplate = (otp, username = 'User') => {
               padding: 10px !important;
             }
             .otp-code {
-              font-size: 28px !important;
+              font-size: 20px !important;
               letter-spacing: 4px !important;
               padding: 15px 25px !important;
             }
