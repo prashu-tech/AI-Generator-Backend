@@ -3,18 +3,33 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { Conversation } from '../models/conversation.js';
 import { v4 as uuidv4 } from 'uuid';
 
-// Get all conversations for a user
+// Get all conversations for a user with cursor-based pagination
 export const getUserConversations = asyncHandler(async (req, res) => {
-  const conversations = await Conversation.find({ 
+  const { after, limit = 20 } = req.query;
+  const limitNum = Math.min(parseInt(limit), 50); // Max 50 conversations per request
+
+  // Build query
+  let query = { 
     userId: req.user._id,
     isActive: true 
-  })
-  .sort({ lastActivity: -1 })
-  .select('sessionId title messages lastActivity createdAt')
-  .limit(50);
+  };
+
+  // Add cursor condition if 'after' is provided
+  if (after) {
+    query.lastActivity = { $lt: new Date(after) };
+  }
+
+  const conversations = await Conversation.find(query)
+    .sort({ lastActivity: -1 })
+    .select('sessionId title messages lastActivity createdAt')
+    .limit(limitNum + 1); // Get one extra to check if there's more
+
+  // Check if there are more conversations
+  const hasMore = conversations.length > limitNum;
+  const conversationsToReturn = hasMore ? conversations.slice(0, limitNum) : conversations;
 
   // Format for sidebar display
-  const formattedConversations = conversations.map(conv => ({
+  const formattedConversations = conversationsToReturn.map(conv => ({
     sessionId: conv.sessionId,
     title: conv.title,
     lastMessage: conv.messages[conv.messages.length - 1]?.content || '',
@@ -23,10 +38,22 @@ export const getUserConversations = asyncHandler(async (req, res) => {
     hasImage: conv.messages.some(msg => msg.imageUrl)
   }));
 
-  res.json({ 
-    success: true, 
-    conversations: formattedConversations 
-  });
+  // Prepare response with pagination
+  const response = {
+    success: true,
+    conversations: formattedConversations,
+    paging: {}
+  };
+
+  // Add nextCursor if there are more conversations
+  if (hasMore && conversationsToReturn.length > 0) {
+    const lastConversation = conversationsToReturn[conversationsToReturn.length - 1];
+    response.paging.nextCursor = lastConversation.lastActivity.toISOString();
+  } else {
+    response.paging.nextCursor = null;
+  }
+
+  res.json(response);
 });
 
 // Get specific conversation messages

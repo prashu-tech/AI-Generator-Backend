@@ -12,6 +12,7 @@ connectDB()
   .then(() => {
     const server = app.listen(PORT, HOST, () => {
       console.log(`Server listening on http://${HOST}:${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 
     app.on('error', (error) => {
@@ -21,6 +22,14 @@ connectDB()
     server.on('error', (error) => {
       console.error('HTTP server error:', error);
       process.exit(1);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('Process terminated');
+      });
     });
   })
   .catch((err) => {
