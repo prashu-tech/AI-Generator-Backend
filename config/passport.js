@@ -1,10 +1,16 @@
 // config/passport.js
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
-import { User } from "../src/models/user.model.js"; // adjust path if needed
-// 🔥 FIXED: Dynamic configuration based on environment
+import { User } from "../src/models/user.model.js";
+
+// 🔥 FIXED: Use the environment variables you defined
 const getGoogleConfig = () => {
   const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  console.log('🔥 Environment check:', {
+    NODE_ENV: process.env.NODE_ENV,
+    isDevelopment: isDevelopment
+  });
   
   return {
     callbackURL: isDevelopment 
@@ -13,16 +19,19 @@ const getGoogleConfig = () => {
     
     clientURL: isDevelopment
       ? process.env.CLIENT_URL_DEV || "http://localhost:3000"
-      : process.env.CLIENT_URL_PROD || "https://your-deployed-frontend-url.com"
+      : process.env.CLIENT_URL_PROD || "https://ai-generator-sbgv.onrender.com"
   };
 };
+
+const config = getGoogleConfig();
+console.log('🔥 Using Google OAuth config:', config);
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: getGoogleConfig().callbackURL,
+      callbackURL: config.callbackURL, // 🔥 This will now use the correct URL
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -89,3 +98,4 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
+export default passport;

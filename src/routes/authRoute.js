@@ -4,11 +4,20 @@ import passport from "passport";
 
 const router = express.Router();
 
-// 🔥 ADDED: Dynamic URL helper for dev/prod compatibility
+// 🔥 FIXED: Use same logic as passport.js
 const getClientURL = () => {
-  return process.env.NODE_ENV === 'development'
-    ? 'http://localhost:3000'
-    : process.env.CLIENT_URL || 'https://your-deployed-frontend-url.com';
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  
+  return isDevelopment
+    ? process.env.CLIENT_URL_DEV || 'http://localhost:3000'
+    : process.env.CLIENT_URL_PROD || 'https://ai-generator-sbgv.onrender.com';
+};
+
+// Generate JWT tokens
+const generateTokens = (user) => {
+  const accessToken = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+  return { accessToken, refreshToken };
 };
 
 // Start Google OAuth2 login
@@ -26,6 +35,8 @@ router.get(
   async (req, res) => {
     try {
       console.log('🔥 Google callback triggered');
+      console.log('🔥 Environment:', process.env.NODE_ENV);
+      console.log('🔥 Client URL:', getClientURL());
       
       const user = req.user;
       if (!user) {
@@ -35,17 +46,18 @@ router.get(
 
       console.log('🔥 User found:', user.email);
 
-      // 🔥 FIXED: Check email verification
+      // Check email verification
       if (!user.isEmailVerified) {
         console.log('🔥 User email not verified');
         return res.redirect(`${getClientURL()}/signin?error=email_not_verified`);
       }
 
-      // 🔥 ADDED: Error handling for token generation
+      // Generate tokens
       let accessToken, refreshToken;
       try {
-        accessToken = user.generateAccessToken();
-        refreshToken = user.generateRefreshToken();
+        const tokens = generateTokens(user);
+        accessToken = tokens.accessToken;
+        refreshToken = tokens.refreshToken;
         console.log('🔥 Tokens generated successfully');
       } catch (tokenError) {
         console.error('🔥 Token generation error:', tokenError);
@@ -62,7 +74,7 @@ router.get(
         // Continue anyway, as tokens are still valid
       }
 
-      // 🔥 FIXED: Build redirect URL
+      // Build redirect URL
       const clientURL = getClientURL();
       const userData = {
         id: user._id,
