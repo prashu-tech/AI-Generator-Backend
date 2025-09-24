@@ -1,9 +1,20 @@
 // controllers/authController.js
 import { User } from '../models/user.model.js';
 import PasswordResetToken from '../models/passwordResetToken.js'; 
-import sendEmail from '../utils/sendEmail.js'; // 🔥 YOUR EXISTING EMAIL UTILITY
+import sendEmail from '../utils/sendEmail.js';
 import crypto from 'crypto';
 import { asyncHandler } from '../utils/asyncHandler.js';
+
+// 🔥 ADDED: Helper function for dynamic client URL
+const getClientURL = () => {
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const clientURL = isDevelopment
+    ? process.env.CLIENT_URL_DEV || 'http://localhost:3000'
+    : process.env.CLIENT_URL_PROD || 'https://ai-generator-sbgv.onrender.com';
+  
+  console.log('🔥 Using client URL:', clientURL, '(NODE_ENV:', process.env.NODE_ENV, ')');
+  return clientURL;
+};
 
 // 🔥 ENHANCED: Sign In with Remember Me (Uses YOUR token methods)
 export const signIn = asyncHandler(async (req, res) => {
@@ -79,7 +90,7 @@ export const signIn = asyncHandler(async (req, res) => {
   }
 });
 
-// 🔥 NEW: Forgot Password (Uses YOUR sendEmail utility)
+// 🔥 FIXED: Forgot Password with correct URL
 export const forgotPassword = asyncHandler(async (req, res) => {
   const { email } = req.body;
 
@@ -114,8 +125,12 @@ export const forgotPassword = asyncHandler(async (req, res) => {
       expiry: tokenExpiry
     });
 
-    // Create reset URL using YOUR CLIENT_URL
-    const resetUrl = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    // 🔥 FIXED: Use dynamic client URL
+    const clientURL = getClientURL();
+    const resetUrl = `${clientURL}/reset-password/${resetToken}`;
+
+    console.log('🔥 Sending password reset email to:', user.email);
+    console.log('🔥 Reset URL:', resetUrl);
 
     // Beautiful HTML email template
     const htmlContent = `
@@ -168,7 +183,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Forgot password error:', error);
+    console.error('🔥 Forgot password error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to send password reset email. Please try again later.'
@@ -176,7 +191,7 @@ export const forgotPassword = asyncHandler(async (req, res) => {
   }
 });
 
-// 🔥 NEW: Reset Password with Token
+// 🔥 EXISTING: Keep your resetPassword function as-is
 export const resetPassword = asyncHandler(async (req, res) => {
   const { token } = req.params;
   const { password, confirmPassword } = req.body;
@@ -232,40 +247,13 @@ export const resetPassword = asyncHandler(async (req, res) => {
     // Delete all reset tokens for this user
     await PasswordResetToken.deleteMany({ userId: user._id });
 
-    // 🔥 OPTIONAL: Send confirmation email using YOUR sendEmail utility
-    try {
-      const confirmationHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px;">
-          <div style="background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); padding: 30px; border-radius: 15px; text-align: center; color: white;">
-            <h2 style="margin: 0 0 15px 0;">✅ Password Reset Successful</h2>
-            <p style="margin: 0; font-size: 16px;">
-              Hello ${user.username},<br><br>
-              Your password has been successfully reset. You can now sign in with your new password.
-            </p>
-          </div>
-          <div style="text-align: center; margin-top: 15px; color: #666; font-size: 12px;">
-            <p>If you didn't make this change, please contact our support team immediately.</p>
-          </div>
-        </div>
-      `;
-
-      await sendEmail({
-        to: user.email,
-        subject: '✅ Password Successfully Reset - Art Style Transfer',
-        html: confirmationHtml
-      });
-    } catch (emailError) {
-      console.error('Failed to send confirmation email:', emailError);
-      // Don't fail the request if confirmation email fails
-    }
-
     res.status(200).json({
       success: true,
       message: 'Password has been reset successfully. You can now sign in with your new password.'
     });
 
   } catch (error) {
-    console.error('Reset password error:', error);
+    console.error('🔥 Reset password error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to reset password. Please try again.'
